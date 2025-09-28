@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Panchakarma Wellness{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="hero-content">
+        <h1>Revitalize Your Mind, Body, and Spirit.</h1>
+        <p>Experience holistic healing with our personalized Panchakarma therapies.</p>
+        <a href="{{ url_for('register') }}" class="book-appointment-btn">Book an Appointment</a>
+    </div>
+    <div class="hero-image-container">
+        <img src="{{ url_for('static', filename='images/therapy_room.jpg') }}" alt="Panchakarma Therapy Room" class="hero-image">
+    </div>
+</section>
+
+<section id="about-panchakarma" class="about-panchakarma section-with-image">
+    <div class="section-content">
+        <h2>About Panchakarma</h2>
+        <p>Panchakarma is more than just a treatment; it's a deep, rejuvenating process rooted in ancient Ayurvedic wisdom. This five-step cleansing therapy is designed to remove deep-seated toxins from the body, restoring its natural balance and vitality. By targeting the root cause of imbalances, Panchakarma helps in managing chronic diseases, boosting immunity, and promoting mental clarity. It's a holistic approach that cleanses, detoxifies, and renews your body from within, setting the foundation for long-term health and well-being.</p>
+    </div>
+    <div class="section-image">
+        <img src="{{ url_for('static', filename='images/about_panchakarma.jpg') }}" alt="Ayurveda Wellness" class="rounded-image">
+    </div>
+</section>
+
+<section id="services-provided" class="services-provided section-with-image reverse">
+    <div class="section-content">
+        <h2>Our Integrated Wellness Services</h2>
+        <div class="service-cards">
+            <div class="service-card">
+                <h3>Automated Therapy Scheduling</h3>
+                <p>Our intelligent system takes the hassle out of planning your wellness journey. It automatically schedules your therapy sessions, taking into account the complex requirements of Panchakarma, so you can focus on your healing, not your calendar.</p>
+            </div>
+            <div class="service-card">
+                <h3>Personalized Notifications</h3>
+                <p>Receive timely and personalized alerts for every stage of your therapy. Our system sends reminders for pre-procedure fasting or post-procedure care, ensuring you adhere to the necessary protocols for a safe and effective treatment. Choose your preferred channel: in-app, SMS, or email.</p>
+            </div>
+            <div class="service-card">
+                <h3>Real-Time Therapy Tracking</h3>
+                <p>Stay connected to your healing process with our real-time tracking dashboard. Monitor your progress, track milestones, and visualize your journey toward wellness. This feature helps you see the tangible benefits of your therapy and stay motivated on your path to recovery.</p>
+            </div>
+            <div class="service-card">
+                <h3>Integrated Feedback Loop</h3>
+                <p>Your experience matters. Our platform includes a seamless feedback system that allows you to share your symptoms, side effects, and improvements directly with your practitioner. This crucial information helps us tailor your treatment plan in real time, ensuring a truly personalized and effective therapy.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="why-book-with-us" class="why-book-with-us section-with-image">
+    <div class="section-content">
+        <h2>Why Choose Panchakarma Wellness?</h2>
+        <div class="features-list">
+            <div class="feature-item">
+                <p><b>Expertise You Can Trust:</b> Our team consists of highly experienced and certified Ayurvedic practitioners who are dedicated to providing authentic and compassionate care. They guide you through every step of your detoxification journey.</p>
+            </div>
+            <div class="feature-item">
+                <p><b>A Personalized Approach:</b> We believe in therapy that is unique to you. Your treatment plan is crafted based on your specific needs, health history, and body type (Dosha), ensuring the most effective and personalized results.</p>
+            </div>
+            <div class="feature-item">
+                <p><b>Modern Convenience, Ancient Wisdom:</b> We blend the timeless principles of Ayurveda with modern technology. Our platform makes it easy to manage appointments, track progress, and communicate with your practitioner from anywhere.</p>
+            </div>
+            <div class="feature-item">
+                <p><b>Holistic and Sustainable Wellness:</b> Our goal is not just to treat symptoms but to empower you with the knowledge and tools for a healthier, more balanced life. We focus on sustainable wellness that lasts long after your therapy is complete.</p>
+            </div>
+        </div>
+    </div>
+    <div class="section-image">
+        <img src="{{ url_for('static', filename='images/why_book_with_us.jpg') }}" alt="Ayurveda Practitioner" class="rounded-image">
+    </div>
+</section>
+
+<section id="our-clients" class="our-clients section-with-image reverse">
+    <div class="section-content">
+        <h2>Our Clients</h2>
+        <div class="client-testimonials">
+            <div class="testimonial-card">
+                <h4>Anita Sharma - Virochana</h4>
+                <p>"The therapy scheduling and reminders made my Panchakarma experience smooth and stress-free. I felt cared for every step of the way."</p>
+                <span class="verified">Verified Patient</span>
+            </div>
+            <div class="testimonial-card">
+                <h4>Suresh Patel - Nasya</h4>
+                <p>"Real-time tracking helped me understand my progress and stay motivated. The feedback system allowed me to communicate easily with my practitioner."</p>
+                <span class="verified">Verified Patient</span>
+            </div>
+            <div class="testimonial-card">
+                <h4>Priya Nair - Basti</h4>
+                <p>"The software ensured I never missed a session or important instructions. Highly recommend this platform!"</p>
+                <span class="verified">Verified Patient</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="get-in-touch" class="get-in-touch">
+    <h2>Get In Touch</h2>
+    <form action="#" method="post" class="contact-form">
+        <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" placeholder="Your full name" required>
+        </div>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="Your email address" required>
+        </div>
+        <div class="form-group">
+            <label for="message">Message</label>
+            <textarea id="message" name="message" rows="5" placeholder="Write your message here" required></textarea>
+        </div>
+        <button type="submit" class="send-message-btn">Send Message</button>
+    </form>
+</section>
+{% endblock %}

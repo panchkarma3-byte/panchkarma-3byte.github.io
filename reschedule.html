@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Reschedule Appointment | Panchakarma Wellness{% endblock %}
+
+{% block nav_menu %}
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('dashboard') }}" class="back-link"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+<h1 class="dashboard-heading">Reschedule Your Appointment</h1>
+
+<section class="automated-scheduling">
+    <div class="scheduling-form" style="margin: 0 auto; max-width: 500px;">
+        <div style="padding: 15px; background-color: #f0f8ff; border-radius: 8px; margin-bottom: 20px;">
+            <p><strong>Practitioner:</strong> {{ practitioner.name }}</p>
+            <p><strong>Current Appointment:</strong> {{ session_details.date.strftime('%Y-%m-%d at %H:%M') }}</p>
+            <p>Please select a new available date and time below.</p>
+        </div>
+
+        <form id="patient-reschedule-form" action="{{ url_for('update_rescheduled_session') }}" method="post">
+            <input type="hidden" name="session_id" value="{{ session_id }}">
+            
+            <div class="form-group">
+                <label for="session-date-select">New Available Date</label>
+                <select id="session-date-select" name="session-date" required disabled>
+                    <option value="">Loading available dates...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="session-time-select">New Available Time</label>
+                <select id="session-time-select" name="session-time" required disabled>
+                    <option value="">Select a date first</option>
+                </select>
+            </div>
+            <button type="submit" class="schedule-btn" id="request-appointment-btn" disabled>Confirm Reschedule</button>
+        </form>
+    </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const practitionerId = "{{ session_details.practitioner_uid }}";
+    const dateSelect = document.getElementById('session-date-select');
+    const timeSelect = document.getElementById('session-time-select');
+    const submitBtn = document.getElementById('request-appointment-btn');
+    let availabilityData = {};
+
+    async function fetchAvailability() {
+        const response = await fetch(`/get_availability/${practitionerId}`);
+        const data = await response.json();
+
+        if (data.success && data.slots) {
+            availabilityData = data.slots;
+            const availableDates = Object.keys(availabilityData).sort();
+            
+            dateSelect.innerHTML = '<option value="" disabled selected>Select a new date</option>';
+            if (availableDates.length > 0) {
+                availableDates.forEach(date => {
+                    const option = document.createElement('option');
+                    option.value = date;
+                    option.textContent = date;
+                    dateSelect.appendChild(option);
+                });
+                dateSelect.disabled = false;
+            } else {
+                dateSelect.innerHTML = '<option value="">No available dates</option>';
+            }
+        } else {
+            dateSelect.innerHTML = '<option value="">Could not fetch dates</option>';
+        }
+    }
+
+    dateSelect.addEventListener('change', (e) => {
+        const selectedDate = e.target.value;
+        timeSelect.innerHTML = '<option value="" disabled selected>Select a time</option>';
+        timeSelect.disabled = true;
+        submitBtn.disabled = true;
+
+        if (!selectedDate || !availabilityData[selectedDate]) return;
+
+        const times = availabilityData[selectedDate];
+        if (times.length > 0) {
+            times.forEach(time => {
+                const option = document.createElement('option');
+                option.value = time;
+                option.textContent = time;
+                timeSelect.appendChild(option);
+            });
+            timeSelect.disabled = false;
+        } else {
+            timeSelect.innerHTML = '<option value="">No times for this date</option>';
+        }
+    });
+
+    timeSelect.addEventListener('change', (e) => {
+        submitBtn.disabled = !e.target.value;
+    });
+
+    // Initial fetch
+    fetchAvailability();
+});
+</script>
+{% endblock %}

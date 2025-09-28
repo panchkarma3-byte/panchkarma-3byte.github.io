@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Our Practitioners | Panchakarma Wellness{% endblock %}
+
+{% block content %}
+<a href="javascript:history.back()" class="back-link"><i class="fas fa-arrow-left"></i> Go Back</a>
+<h1 class="dashboard-heading">Our Expert Practitioners</h1>
+
+<section class="therapist-profiles">
+    {% for therapist in therapists %}
+    <div class="profile-card">
+        <div class="profile-header">
+            <h3>{{ therapist.name }}
+                {% if therapist.verification_status == 'Verified' %}
+                <span class="verified-tick" title="Verified Practitioner">✔</span>
+                {% endif %}
+            </h3>
+        </div>
+        <div class="profile-details">
+            <p><strong>Specialties:</strong>
+                {% if therapist.specialties %}
+                {{ therapist.specialties | join(', ') }}
+                {% else %}
+                General Panchakarma
+                {% endif %}
+            </p>
+            <p><strong>Address:</strong> 
+                <a href="https://www.google.com/maps/search/?api=1&query={{ therapist.address }}" target="_blank" rel="noopener noreferrer">
+                    {{ therapist.address }}
+                </a>
+            </p>
+            <p><strong>Contact:</strong>
+                <a href="mailto:{{ therapist.contact.email }}">{{ therapist.contact.email }}</a>
+                | <a href="tel:{{ therapist.contact.phone }}">{{ therapist.contact.phone }}</a>
+            </p>
+            <p><strong>Appointment Confirmation Fee:</strong> ₹{{ therapist.appointment_price or 0 }}</p>
+            <p><strong>Therapy Session Fee:</strong> ₹{{ therapist.session_price or 0 }}</p>
+        </div>
+        <form action="{{ url_for('schedule_session_patient') }}" method="post">
+            <input type="hidden" name="therapist-uid" value="{{ therapist.doc_id }}">
+            <button type="submit" class="schedule-btn">Request an Appointment</button>
+        </form>
+    </div>
+    {% else %}
+    <p>No practitioner profiles available at the moment.</p>
+    {% endfor %}
+</section>
+{% endblock %}

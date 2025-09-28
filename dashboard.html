@@ -1,0 +1,809 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Panchakarma Management{% endblock %}
+
+{% block nav_menu %}
+{% endblock %}
+
+{% block content %}
+<a href="javascript:history.back()" class="back-link"><i class="fas fa-arrow-left"></i> Go Back</a>
+<h1 class="dashboard-heading">Dashboard Overview</h1>
+
+<ul class="dashboard-menu">
+    {% if user_role == 'patient' %}
+    <li><a href="#" data-tab="sessions" class="active">Upcoming Sessions</a></li>
+    <li><a href="#" data-tab="journey">My Therapy Journey</a></li>
+    <li><a href="#" data-tab="schedule-new">Schedule New</a></li>
+    <li><a href="#" data-tab="comms">Notifications & Feedback</a></li>
+    {% elif user_role == 'practitioner' %}
+    <li><a href="#" data-tab="upcoming-sessions" class="active">Upcoming Sessions</a></li>
+    <li><a href="#" data-tab="availability">My Availability</a></li>
+    <li><a href="#" data-tab="feedback">Feedback</a></li>
+    <li><a href="#" data-tab="notifications">Notifications</a></li>
+    {% endif %}
+    <li><a href="#" data-tab="profile">Profile</a></li>
+</ul>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="flash-messages">
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
+
+<div id="dashboard-header-stats">
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+            <div class="stat-content">
+                <span class="stat-number">{{ sessions|length }}</span>
+                <p class="stat-label">Upcoming Sessions</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-bell"></i></div>
+            <div class="stat-content">
+                <span class="stat-number">{{ notifications|length }}</span>
+                <p class="stat-label">Notifications</p>
+            </div>
+        </div>
+        {% if user_role == 'practitioner' %}
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-content">
+                <span class="stat-number" id="active-patients-count">{{ active_patients_count }}</span>
+                <p class="stat-label">Active Patients</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+
+{% if user_role == 'practitioner' %}
+
+<div id="upcoming-sessions-tab" class="tab-content active">
+    <section>
+        <h2>Upcoming Therapy Sessions</h2>
+        <div class="upcoming-sessions">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>Patient UID</th>
+                        <th>Therapy Type</th>
+                        <th>Date & Time</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in sessions %}
+                    <tr>
+                        <td>{{ session.patient_name }}</td>
+                        <td>{{ session.patient_uid }}</td>
+                        <td>{{ session.therapy }}</td>
+                        <td>{{ session.date.strftime('%Y-%m-%d') }}<br><small>{{ session.date.strftime('%I:%M %p') }}</small></td>
+                        <td>
+                            <span class="status-badge status-{{ session.status|replace('_', '-') }}">{{ session.status|replace('_', ' ')|title }}</span>
+                        </td>
+                        <td>
+                            {% if session.status == 'scheduled' or session.status == 'payment_pending' %}
+                                <form action="{{ url_for('complete_session') }}" method="post" style="display:inline;">
+                                    <input type="hidden" name="session_id" value="{{ session.doc_id }}">
+                                    <button type="submit" class="complete-btn" title="Mark as Complete"><i class="fas fa-check-circle"></i></button>
+                                </form>
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<div id="availability-tab" class="tab-content">
+    <section>
+        <h2>Manage My Availability</h2>
+        
+        <div class="scheduling-form" style="margin-bottom: 30px;">
+            <h3>Recurring Weekly Schedule</h3>
+            <p>Set your standard working hours here. Leave the times blank for days you don't work.</p>
+            <form id="recurring-availability-form">
+                {% set days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] %}
+                {% for day in days %}
+                {% set rule = availability.get('recurring', {}).get(day, {}) %}
+                <div style="display: grid; grid-template-columns: 120px 1fr 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 10px;">
+                    <label style="font-weight: bold;">{{ day.title() }}</label>
+                    <input type="time" id="start-{{ day }}" value="{{ rule.get('start', '') }}">
+                    <input type="time" id="end-{{ day }}" value="{{ rule.get('end', '') }}">
+                    <input type="number" id="interval-{{ day }}" placeholder="Interval (mins)" value="{{ rule.get('interval', '60') }}">
+                </div>
+                {% endfor %}
+                <button type="submit" class="schedule-btn">Save Weekly Schedule</button>
+            </form>
+        </div>
+
+        <div class="scheduling-form">
+            <h3>Date Overrides (Holidays or Special Availability)</h3>
+            <p>Block a specific date or add custom hours for a single day. This will override your recurring schedule.</p>
+            <form id="override-availability-form">
+                <div class="form-group">
+                    <label for="override-date">Select a Date to Override</label>
+                    <input type="date" id="override-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="override-times">Enter Available Times (24-hr format)</label>
+                    <input type="text" id="override-times" placeholder="e.g., 09:00, 10:30, 14:00">
+                    <small>To **block** a date entirely, leave this field blank and click Update.</small>
+                </div>
+                <button type="submit" class="schedule-btn">Update Specific Date</button>
+            </form>
+        </div>
+    </section>
+</div>
+
+
+<div id="feedback-tab" class="tab-content">
+    <section>
+        <h2>Patient Feedback</h2>
+        <div class="recent-feedback" style="background: none; box-shadow: none; padding: 0;">
+            {% for fb in feedback %}
+                <div class="feedback-card">
+                    <h4>Feedback from: {{ fb.patient_name }}</h4>
+                    <p>"{{ fb.feedback_text }}"</p>
+                    <small>Submitted on: {{ fb.created_at.strftime('%Y-%m-%d') }}</small>
+                </div>
+            {% else %}
+                <p>No feedback has been submitted by your patients yet.</p>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+{% endif %}
+{% if user_role == 'patient' %}
+<div id="sessions-tab" class="tab-content active">
+    <section class="upcoming-sessions-section">
+        <h2>My Upcoming Sessions</h2>
+        <div class="upcoming-sessions">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Therapy Type</th>
+                        <th>Practitioner</th>
+                        <th>Date & Time</th>
+                        <th>Fees</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in sessions %}
+                    <tr id="session-{{ session.doc_id }}">
+                        <td>{{ session.therapy }}</td>
+                        <td>{{ session.practitioner_name }}</td>
+                        <td>{{ session.date.strftime('%Y-%m-%d') }}<br><small>{{ session.date.strftime('%I:%M %p') }}</small></td>
+                        <td>
+                            Confirm: ₹{{ session.appointment_price or 0 }}<br>
+                            <small>Session: ₹{{ session.session_price or 0 }}</small>
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ session.status|replace('_', '-') }}">{{ session.status|replace('_', ' ')|title }}</span>
+                        </td>
+                        <td>
+                            {% if session.is_reschedulable %}
+                                <a href="{{ url_for('reschedule_session', session_id=session.doc_id) }}" class="action-btn reschedule-btn">Reschedule</a>
+                            {% endif %}
+                            
+                            {% if session.status == 'payment_pending' %}
+                                {% if not session.payment_deadline_passed %}
+                                    <button class="action-btn pay-btn" data-session-id="{{ session.doc_id }}">Pay</button>
+                                {% else %}
+                                    <span class="status-badge status-pending">Deadline Passed</span>
+                                {% endif %}
+                            {% endif %}
+                            
+                            {% if session.is_cancellable %}
+                                <form action="{{ url_for('cancel_session_patient') }}" method="post" onsubmit="return confirm('Are you sure you want to cancel this appointment request?');" style="display: inline-block;">
+                                    <input type="hidden" name="session_id" value="{{ session.doc_id }}">
+                                    <button type="submit" class="action-btn cancel-btn">Cancel</button>
+                                </form>
+                            {% endif %}
+                            
+                            {% if not session.is_reschedulable and not session.is_cancellable and session.status in ['payment_pending', 'scheduled'] %}
+                                <span>Locked</span>
+                            {% elif session.status not in ['payment_pending', 'scheduled'] %}
+                                 N/A
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<div id="journey-tab" class="tab-content">
+    <section class="therapy-journey-section">
+        <h2>My Therapy Journey</h2>
+        {% if journeys %}
+            {% for journey in journeys|sort(attribute='session_date', reverse=True) %}
+            <div class="journey-container">
+                <h3>{{ journey.plan_name }} (Session on {{ journey.session_date.strftime('%b %d, %Y') }})</h3>
+                <ul class="journey-timeline">
+                    {% for task in journey.tasks|sort(attribute='task_date') %}
+                    <li class="journey-task {% if task.status == 'completed' %}completed{% endif %}">
+                        <div class="task-date">{{ task.task_date.strftime('%A, %b %d') }}</div>
+                        <div class="task-details">
+                            <h4>{{ task.title }}</h4>
+                            <p>{{ task.description }}</p>
+                            {% if task.status != 'completed' %}
+                                <button class="action-btn complete-task-btn" 
+                                        data-journey-id="{{ journey.session_id }}" 
+                                        data-task-index="{{ loop.index0 }}">
+                                    Mark as Complete
+                                </button>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>You have no active therapy journeys. Once you schedule and confirm a session, your personalized plan will appear here.</p>
+        {% endif %}
+    </section>
+</div>
+
+<div id="schedule-new-tab" class="tab-content">
+     <section class="automated-scheduling">
+        <h2>Book a New Therapy Session</h2>
+        <div class="scheduling-form" style="margin: 0 auto; max-width: 500px;">
+            <form id="patient-schedule-form" action="{{ url_for('schedule_session_patient') }}" method="post">
+                <div class="form-group">
+                    <label for="therapist">Choose a Therapist</label>
+                    <select id="therapist-select" name="therapist-uid" required>
+                        <option value="" disabled selected>Select a practitioner</option>
+                        {% for therapist in therapists %}
+                        <option value="{{ therapist.doc_id }}">{{ therapist.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                 <div class="form-group">
+                    <label for="therapy-type">Therapy Session</label>
+                    <select id="therapy-type-patient" name="therapy-type" required>
+                        <option value="" disabled selected>Select therapy type</option>
+                        <option value="auto">Auto-select therapy</option>
+                        <option value="Virechana">Virechana</option>
+                        <option value="Nasya">Nasya</option>
+                        <option value="Basti">Basti</option>
+                        <option value="Vamana">Vamana</option>
+                        <option value="Raktamokshana">Raktamokshana</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="session-date-select">Available Date</label>
+                    <select id="session-date-select" name="session-date" required disabled>
+                        <option value="">First, select a therapist</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="session-time-select">Available Time</label>
+                    <select id="session-time-select" name="session-time" required disabled>
+                        <option value="">Then, select a date</option>
+                    </select>
+                </div>
+                <button type="submit" class="schedule-btn" id="request-appointment-btn" disabled>Request Appointment</button>
+            </form>
+        </div>
+    </section>
+</div>
+
+<div id="comms-tab" class="tab-content">
+    <section class="notification-system">
+        <h2>Notifications & Feedback</h2>
+        <div class="notification-container">
+            <div class="notification-channels">
+                <h3>Notification Channels</h3>
+                <form action="{{ url_for('save_notifications') }}" method="post">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="in-app" name="in-app" {% if user_settings.in_app %}checked{% endif %}>
+                        <label for="in-app">In-App Notifications</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="sms" name="sms" {% if user_settings.sms %}checked{% endif %}>
+                        <label for="sms">SMS</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="email" name="email" {% if user_settings.email %}checked{% endif %}>
+                        <label for="email">Email</label>
+                    </div>
+                    <button type="submit" class="save-btn">Save Preferences</button>
+                </form>
+                <hr style="margin-top: 30px;">
+                <div class="feedback-form" style="padding: 0;">
+                    <h3>Submit Feedback</h3>
+                    <form action="#">
+                        <div class="form-group">
+                            <label for="feedback-session">Therapy Session</label>
+                            <select id="feedback-session">
+                                <option>Select a completed session</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="feedback-symptoms">Feedback</label>
+                            <textarea id="feedback-symptoms" rows="5" placeholder="Describe your experience"></textarea>
+                        </div>
+                        <button type="submit" class="schedule-btn">Submit Feedback</button>
+                    </form>
+                </div>
+            </div>
+            <div class="sample-notifications">
+                <h3>Recent Notifications</h3>
+                <ul id="notifications-list">
+                    {% for notification in notifications %}
+                    <li class="notification-box {{ notification.type }}">
+                        <h4><i class="fas fa-bell"></i> {{ notification.message }}</h4>
+                        <small>{{ notification.created_at.strftime('%Y-%m-%d %I:%M %p') }}</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </section>
+</div>
+{% endif %}
+{% if user_role == 'practitioner' %}
+<div id="notifications-tab" class="tab-content">
+    <section class="notification-system">
+        <h2>Notifications & Channels</h2>
+        <div class="notification-container">
+            <div class="notification-channels">
+                <h3>Notification Channels</h3>
+                <form action="{{ url_for('save_notifications') }}" method="post">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="in-app-practitioner" name="in-app" {% if user_settings.in_app %}checked{% endif %}>
+                        <label for="in-app-practitioner">In-App Notifications</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="sms-practitioner" name="sms" {% if user_settings.sms %}checked{% endif %}>
+                        <label for="sms-practitioner">SMS</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="email-practitioner" name="email" {% if user_settings.email %}checked{% endif %}>
+                        <label for="email-practitioner">Email</label>
+                    </div>
+                    <button type="submit" class="save-btn">Save Preferences</button>
+                </form>
+            </div>
+            <div class="sample-notifications">
+                <h3>Recent Notifications</h3>
+                <ul id="notifications-list-practitioner">
+                    {% for notification in notifications %}
+                    <li class="notification-box {{ notification.type }}">
+                        <h4><i class="fas fa-bell"></i> {{ notification.message }}</h4>
+                        <small>{{ notification.created_at.strftime('%Y-%m-%d %I:%M %p') }}</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </section>
+</div>
+{% endif %}
+
+<div id="profile-tab" class="tab-content">
+    <section class="user-profile">
+        <h2>Manage Your Profile</h2>
+        <div class="profile-form">
+            <form id="profile-update-form" action="{{ url_for('update_profile') }}" method="post">
+                <h3>Personal Information</h3>
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" name="name" value="{{ user_profile.name }}">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" value="{{ user_profile.email }}" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="number">Phone Number</label>
+                    <input type="tel" id="number" name="number" value="{{ user_profile.number }}">
+                </div>
+                
+                {% if user_role == 'practitioner' %}
+                <h3>Professional Information</h3>
+                <div class="form-group">
+                    <label for="address">Practice Address</label>
+                    <input type="text" id="address" name="address" value="{{ user_profile.address }}">
+                </div>
+                <div class="form-group">
+                    <label for="specialties">Specialties</label>
+                    <select id="specialties" name="specialties" multiple class="form-control">
+                        <option value="Virechana" {% if 'Virechana' in user_profile.specialties %}selected{% endif %}>Virechana</option>
+                        <option value="Nasya" {% if 'Nasya' in user_profile.specialties %}selected{% endif %}>Nasya</option>
+                        <option value="Basti" {% if 'Basti' in user_profile.specialties %}selected{% endif %}>Basti</option>
+                        <option value="Vamana" {% if 'Vamana' in user_profile.specialties %}selected{% endif %}>Vamana</option>
+                        <option value="Raktamokshana" {% if 'Raktamokshana' in user_profile.specialties %}selected{% endif %}>Raktamokshana</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="appointment_price">Appointment Confirmation Fee (₹)</label>
+                    <input type="number" id="appointment_price" name="appointment_price" value="{{ user_profile.appointment_price }}">
+                </div>
+                <div class="form-group">
+                    <label for="session_price">Therapy Session Fee (₹)</label>
+                    <input type="number" id="session_price" name="session_price" value="{{ user_profile.session_price }}">
+                </div>
+                <button type="submit" class="auth-btn">Update Profile</button>
+                
+                <hr style="margin: 30px 0;">
+
+                <h3>Verification Status: 
+                    <span class="status-badge status-{{ user_profile.verification_status|lower|replace(' ', '-') }}">{{ user_profile.verification_status }}</span>
+                </h3>
+
+                {% if user_profile.verification_status == 'Pending Review' %}
+                    <p>To become a verified practitioner, please email a copy of your qualification certificate with your identity proof to <strong>panchakarma3@gmail.com</strong>. Our team will review your documents and we'll get back to you in 3-4 working days.</p>
+                {% elif user_profile.verification_status == 'Verified' %}
+                    <p>Congratulations! Your profile is verified. You will now appear with a "Verified" badge to patients.</p>
+                {% endif %}
+                
+                {% else %}
+                <button type="submit" class="auth-btn">Update Profile</button>
+                {% endif %}
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<script>
+    const firebaseConfig = {{ firebase_config|tojson }};
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const userRole = "{{ user_role }}";
+    const userId = "{{ user_id }}";
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const navLinks = document.querySelectorAll('.dashboard-menu a');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        if ($('#specialties').length) {
+            $('#specialties').select2({
+                placeholder: "Select specialties",
+                allowClear: true
+            });
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                navLinks.forEach(nav => nav.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                link.classList.add('active');
+                const targetTabId = link.getAttribute('data-tab');
+                if (document.getElementById(targetTabId + '-tab')) {
+                    document.getElementById(targetTabId + '-tab').classList.add('active');
+                }
+            });
+        });
+
+        const payButtons = document.querySelectorAll('.pay-btn');
+        payButtons.forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const sessionId = e.target.dataset.sessionId;
+                try {
+                    const orderResponse = await fetch("{{ url_for('create_order') }}", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: sessionId })
+                    });
+                    const orderData = await orderResponse.json();
+                    if (!orderData.success) {
+                        alert('Error creating payment order: ' + orderData.error);
+                        return;
+                    }
+                    const options = {
+                        "key": orderData.key_id,
+                        "amount": orderData.amount,
+                        "order_id": orderData.order_id,
+                        "name": "Panchakarma Wellness",
+                        "description": "Therapy Session Fee",
+                        "image": "{{ url_for('static', filename='images/logo.png') }}",
+                        "handler": async function (response) {
+                            const verificationResponse = await fetch("{{ url_for('verify_payment') }}", {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_signature: response.razorpay_signature,
+                                    session_id: sessionId
+                                })
+                            });
+                            const verificationData = await verificationResponse.json();
+                            if (verificationData.success) {
+                                alert('Payment successful! Your appointment is now scheduled.');
+                                window.location.reload();
+                            } else {
+                                alert('Payment verification failed. Please contact support.');
+                            }
+                        },
+                        "prefill": {
+                            "name": "{{ user_profile.name }}",
+                            "email": "{{ user_profile.email }}",
+                            "contact": "{{ user_profile.number }}"
+                        },
+                        "theme": { "color": "#4CAF50" }
+                    };
+                    const rzp1 = new Razorpay(options);
+                    rzp1.on('payment.failed', function (response) {
+                        alert('Payment failed: ' + response.error.description);
+                    });
+                    rzp1.open();
+                } catch (error) {
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        });
+
+        const profileForm = document.getElementById('profile-update-form');
+        if (profileForm) {
+             profileForm.addEventListener('submit', async (e) => {
+                const submitter = e.submitter;
+                if (submitter && submitter.textContent.includes('Update Profile')) {
+                    e.preventDefault();
+                    
+                    const specialtiesData = $('#specialties').val();
+                    const form = e.target;
+                    const formData = new FormData(form);
+                    const formDataJSON = {};
+
+                    formData.forEach((value, key) => {
+                        if (key !== 'specialties') {
+                            formDataJSON[key] = value;
+                        }
+                    });
+                    formDataJSON['specialties'] = specialtiesData;
+                    
+                    if (formDataJSON['appointment_price']) {
+                        formDataJSON['appointment_price'] = parseInt(formDataJSON['appointment_price']) || 0;
+                    }
+                     if (formDataJSON['session_price']) {
+                        formDataJSON['session_price'] = parseInt(formDataJSON['session_price']) || 0;
+                    }
+                    
+                    try {
+                        const response = await fetch("{{ url_for('update_profile') }}", {
+                            method: 'POST', body: JSON.stringify(formDataJSON),
+                            headers: {'Content-Type': 'application/json'}
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            alert('Profile updated successfully!');
+                            window.location.reload();
+                        } else {
+                            alert('Failed to update profile: ' + data.error);
+                        }
+                    } catch (error) {
+                        alert('An error occurred while updating the profile.');
+                    }
+                }
+            });
+        }
+        
+        if (userRole === 'practitioner') {
+            const recurringForm = document.getElementById('recurring-availability-form');
+            recurringForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+                const recurringData = {};
+
+                days.forEach(day => {
+                    const start = document.getElementById(`start-${day}`).value;
+                    const end = document.getElementById(`end-${day}`).value;
+                    const interval = document.getElementById(`interval-${day}`).value;
+                    if (start && end) {
+                        recurringData[day] = { start, end, interval };
+                    }
+                });
+
+                const response = await fetch("{{ url_for('update_recurring_availability') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(recurringData)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert(data.message);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+
+            const overrideForm = document.getElementById('override-availability-form');
+            overrideForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const date = document.getElementById('override-date').value;
+                const times = document.getElementById('override-times').value;
+                
+                const response = await fetch("{{ url_for('update_date_override') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date, times })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert(data.message);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+
+        if (userRole === 'patient') {
+            const therapistSelect = document.getElementById('therapist-select');
+            const dateSelect = document.getElementById('session-date-select');
+            const timeSelect = document.getElementById('session-time-select');
+            const submitBtn = document.getElementById('request-appointment-btn');
+            let availabilityData = {};
+
+            therapistSelect.addEventListener('change', async (e) => {
+                const practitionerId = e.target.value;
+                dateSelect.innerHTML = '<option value="">Fetching dates...</option>';
+                timeSelect.innerHTML = '<option value="">Select a date</option>';
+                dateSelect.disabled = true;
+                timeSelect.disabled = true;
+                submitBtn.disabled = true;
+                
+                if (!practitionerId) return;
+
+                const response = await fetch(`/get_availability/${practitionerId}`);
+                const data = await response.json();
+
+                if (data.success && data.slots) {
+                    availabilityData = data.slots;
+                    const availableDates = Object.keys(availabilityData).sort();
+                    
+                    dateSelect.innerHTML = '<option value="" disabled selected>Select an available date</option>';
+                    if (availableDates.length > 0) {
+                        availableDates.forEach(date => {
+                            const option = document.createElement('option');
+                            option.value = date;
+                            option.textContent = date;
+                            dateSelect.appendChild(option);
+                        });
+                        dateSelect.disabled = false;
+                    } else {
+                        dateSelect.innerHTML = '<option value="">No available dates</option>';
+                    }
+                } else {
+                    dateSelect.innerHTML = '<option value="">Could not fetch dates</option>';
+                }
+            });
+
+            dateSelect.addEventListener('change', (e) => {
+                const selectedDate = e.target.value;
+                timeSelect.innerHTML = '<option value="" disabled selected>Select a time</option>';
+                timeSelect.disabled = true;
+                submitBtn.disabled = true;
+
+                if (!selectedDate || !availabilityData[selectedDate]) return;
+
+                const times = availabilityData[selectedDate];
+                if (times.length > 0) {
+                    times.forEach(time => {
+                        const option = document.createElement('option');
+                        option.value = time;
+                        option.textContent = time;
+                        timeSelect.appendChild(option);
+                    });
+                    timeSelect.disabled = false;
+                } else {
+                    timeSelect.innerHTML = '<option value="">No available times for this date</option>';
+                }
+            });
+
+            timeSelect.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    submitBtn.disabled = false;
+                } else {
+                    submitBtn.disabled = true;
+                }
+            });
+        }
+
+        // NEW JAVASCRIPT FOR HANDLING TASK COMPLETION
+        document.body.addEventListener('click', async (e) => {
+            if (e.target && e.target.classList.contains('complete-task-btn')) {
+                e.preventDefault();
+                const button = e.target;
+                const journeyId = button.dataset.journeyId;
+                const taskIndex = parseInt(button.dataset.taskIndex, 10);
+
+                button.textContent = 'Updating...';
+                button.disabled = true;
+
+                try {
+                    const response = await fetch("{{ url_for('update_task_status') }}", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            journey_id: journeyId,
+                            task_index: taskIndex
+                        })
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // Update the UI
+                        const taskElement = button.closest('.journey-task');
+                        taskElement.classList.add('completed');
+                        button.remove(); // Remove the button after completion
+                    } else {
+                        alert('Error: ' + data.error);
+                        button.textContent = 'Mark as Complete';
+                        button.disabled = false;
+                    }
+                } catch (error) {
+                    alert('An error occurred. Please try again.');
+                    button.textContent = 'Mark as Complete';
+                    button.disabled = false;
+                }
+            }
+        });
+    });
+
+    if (db && userId) {
+        const notificationsListId = userRole === 'practitioner' ? 'notifications-list-practitioner' : 'notifications-list';
+        db.collection("notifications")
+          .where("recipient_id", "==", userId)
+          .orderBy("created_at", "desc")
+          .onSnapshot((querySnapshot) => {
+              const notificationsList = document.getElementById(notificationsListId);
+if (!notificationsList) return;
+              notificationsList.innerHTML = "";
+              querySnapshot.forEach((doc) => {
+                  const notification = doc.data();
+                  const li = document.createElement("li");
+                  li.className = `notification-box ${notification.type || 'info'}`;
+                  li.innerHTML = `<h4><i class="fas fa-bell"></i> ${notification.message}</h4><small>${notification.created_at.toDate().toLocaleString()}</small>`;
+                  notificationsList.appendChild(li);
+              });
+          });
+    }
+
+    if (db && userId && userRole === 'practitioner') {
+        db.collection("sessions")
+          .where("practitioner_uid", "==", userId)
+          .onSnapshot((querySnapshot) => {
+              const activePatients = new Set();
+              querySnapshot.forEach((doc) => {
+                  const patientId = doc.data().patient_uid;
+                  if (patientId) {
+                      activePatients.add(patientId);
+                  }
+              });
+              const countElement = document.getElementById("active-patients-count");
+              if (countElement) {
+                  countElement.textContent = activePatients.size;
+              }
+          });
+    }
+</script>
+{% endblock %}

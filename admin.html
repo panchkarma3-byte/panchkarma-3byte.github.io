@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<h1 class="dashboard-heading">Admin Dashboard</h1>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="flash-messages">
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
+
+<section>
+    <h2>Practitioners Pending Verification</h2>
+    {% if practitioners %}
+    <div class="upcoming-sessions">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone Number</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for practitioner in practitioners %}
+                <tr>
+                    <td>{{ practitioner.name }}</td>
+                    <td>{{ practitioner.email }}</td>
+                    <td>{{ practitioner.number }}</td>
+                    <td>
+                        <form action="{{ url_for('approve_practitioner', practitioner_id=practitioner.doc_id) }}" method="post">
+                            <button type="submit" class="schedule-btn">Approve</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>There are no practitioners currently pending verification.</p>
+    {% endif %}
+</section>
+
+{% endblock %}
